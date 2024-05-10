@@ -122,8 +122,8 @@ EOF
 
 #查看
 kubectl get pvc
-NAME                        STATUS    VOLUME     CAPACITY   ACCESS MODES   STORAGECLASS             AGE
-plik-longhorn-pvc           Pending                                         mayastor-sc              4s
+NAME                        STATUS    VOLUME     CAPACITY   ACCESS MODES   STORAGECLASS            AGE
+plik-longhorn-pvc           Bound                                          longhorn                4s
 ```
 
 
