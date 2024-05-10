@@ -122,8 +122,8 @@ EOF
 
 #查看
 kubectl get pvc
-NAME                        STATUS    VOLUME     CAPACITY   ACCESS MODES   STORAGECLASS            AGE
-plik-longhorn-pvc           Bound                                          longhorn                4s
+NAME                STATUS    VOLUME                  CAPACITY   ACCESS MODES   STORAGECLASS     AGE
+plik-longhorn-pvc   Bound    pvc-76f7d471-b6dd-43...  10Gi       RWX            longhorn         27h
 ```
 
 
