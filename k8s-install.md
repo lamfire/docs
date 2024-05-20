@@ -2,7 +2,7 @@
 
  
 
-1.主机名称修改，目前我的3台主机名称分别是：
+主机名称修改，目前我的3台主机名称分别是：
 
 ```
 k8s-master :  192.168.1.200
@@ -10,7 +10,11 @@ k8s-node-1:   192.168.1.201
 k8s-node-2:   192.168.1.202
 ```
 
- 
+ 安装必需软件
+
+```
+apt install -y ipset ipvsadm chrony ca-certificates curl  software-properties-common apt-transport-https containerd locales
+```
 
 可以使用下面的方式更改名称：
 
@@ -33,7 +37,7 @@ vim /etc/hosts
 
  
 
-2.关闭防火墙【没有uwf服务的不用操作】
+关闭防火墙【没有uwf服务的不用操作】
 
 ```
 systemctl stop  uwf && systemctl disable uwf
@@ -43,7 +47,7 @@ systemctl stop  uwf && systemctl disable uwf
 
  
 
-3.关闭swap
+关闭swap
 
 ```
 swapoff -a
@@ -52,15 +56,53 @@ sed -i  '/swap/s/^\(.*\)$/#\1/g' /etc/fstab
 
 
 
- 
-
-4.将桥接的IPv4流量传递到iptables的链
+调大ulimit
 
 ```
-echo  'net.bridge.bridge-nf-call-ip6tables = 1' >> /etc/sysctl.conf
-echo  'net.bridge.bridge-nf-call-iptables = 1' >> /etc/sysctl.conf
-echo  'net.ipv4.conf.all.route_localnet = 1' >> /etc/sysctl.conf
-echo  'net.ipv4.ip_forward = 1' >> /etc/sysctl.conf
+cat >> /etc/security/limits.conf <<EOF
+# End of file
+* soft nproc 1000000
+* hard nproc 1000000
+* soft nofile 1000000
+* hard nofile 1000000
+root soft nproc 1000000
+root hard nproc 1000000
+root soft nofile 1000000
+root hard nofile 1000000
+EOF
+
+ulimit -SHn 1000000
+
+```
+
+ 
+
+将桥接的IPv4流量传递到iptables的链
+
+```
+vim /etc/sysctl.conf
+
+fs.file-max = 1000000
+fs.inotify.max_user_instances = 8192
+net.ipv4.tcp_syncookies = 1
+net.ipv4.tcp_fin_timeout = 30
+net.ipv4.tcp_tw_reuse = 1
+net.ipv4.ip_local_port_range = 1024 65000
+net.ipv4.tcp_max_syn_backlog = 16384
+net.ipv4.tcp_max_tw_buckets = 6000
+net.ipv4.route.gc_timeout = 100
+net.ipv4.tcp_syn_retries = 1
+net.ipv4.tcp_synack_retries = 1
+net.core.somaxconn = 32768
+net.core.netdev_max_backlog = 32768
+net.core.netdev_budget = 5000
+net.ipv4.tcp_timestamps = 0
+net.ipv4.tcp_max_orphans = 32768
+net.ipv4.ip_forward = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+net.ipv4.conf.all.route_localnet = 1
+
 sysctl -p
 ```
 
@@ -80,37 +122,34 @@ modprobe br_netfilter
 
  
 
-可以通过以下命令创建一个新的Systemd服务来实现自动加载br_netfilter：
-设置脚本，让br_netfilter加载模块
-\--------------------------------------------------------------------------------
+可以通过以下设置来实现自动加载模块
 
 ```
-cat <<EOF >  /etc/modules-load.d/br_netfilter.modules
-\#!/bin/bash
-modprobe --  br_netfilter
-EOF
+vim /etc/modules
 
- 
-
-chmod 755  /etc/modules-load.d/br_netfilter.modules
-bash  /etc/modules-load.d/br_netfilter.modules
-```
-
-
-\--------------------------------------------------------------------------------
-
-现在，每次启动时，br_netfilter模块都会被自动加载。
-
- 
-
- 
-
- 
-
-5.设置时间同步
+modprobe -- nvmet-tcp
+modprobe -- br_netfilter
+modprobe -- ip_vs
+modprobe -- ip_vs_rr
+modprobe -- ip_vs_wrr
+modprobe -- ip_vs_sh
+modprobe --  nf_conntrack
 
 ```
-sudo apt install -y chrony
+
+现在，每次启动时，这些模块都会被自动加载。
+
+ 
+
+ 
+
+ 
+
+设置时区及同步
+
+```
+rm -rf /etc/localtime
+ln -s /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 sudo systemctl restart  chrony
 sudo systemctl status chrony
 chronyc sources
@@ -166,7 +205,6 @@ sudo scp [root@192.168.1.200:~/.ssh/id_rsa.pub](mailto:root@192.168.1.200:~/.ssh
 \# 安装基础环境
 
 ```
-apt install -y ca-certificates curl  software-properties-common apt-transport-https curl containerd
 curl -s  https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg | sudo apt-key add -
 echo 'deb https://mirrors.aliyun.com/kubernetes/apt/ kubernetes-xenial main' >>  /etc/apt/sources.list.d/kubernetes.list 
 apt update -y
@@ -345,48 +383,13 @@ kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/
 
  
 
-
-置kube-proxy模式为IPVS模式
+#### 置kube-proxy模式为IPVS模式
 
  
 
 kube-proxy默认采用iptables作为代理，而iptables的性能有限，不适合生产环境，需要改为IPVS模式
 
- 
-
-1.# 安装软件
-
-```
-apt install -y ipset ipvsadm
-```
-
- 
-
-2.# 设置脚本，让ipvs加载模块
-
-```
-cat <<EOF >  /etc/modules-load.d/ipvs.modules
-\#!/bin/bash
-modprobe -- ip_vs
-modprobe  -- ip_vs_rr
-modprobe -- ip_vs_wrr
-modprobe -- ip_vs_sh
-modprobe --  nf_conntrack
-EOF
-```
-
- 
-
-3.设置脚本，进行开机ipvs自行加载模块
-
-```
-chmod 755  /etc/modules-load.d/ipvs.modules
-bash  /etc/modules-load.d/ipvs.modules
-```
-
- 
-
-4. 查看模块是否已加载
+查看模块是否已加载
 
 ```
 lsmod | grep ip_vs
@@ -395,7 +398,7 @@ lsmod | grep  nf_conntrack
 
  
 
-5.设置kube-proxy为IPVS模式
+设置kube-proxy为IPVS模式
 
 ```
 kubectl edit configmap  kube-proxy -n kube-system
@@ -404,7 +407,7 @@ mode: "ipvs"
 
  
 
-6. 重启kube-proxy组件并检查模式
+重启kube-proxy组件并检查模式
 
 ```
 kubectl rollout restart  daemonset kube-proxy -n kube-system 
@@ -641,7 +644,7 @@ systemctl daemon-reload && systemctl restart kubelet
  
 
 ```
-sudo kubectl edit daemonset kube-flannel-ds-amd64 -n  kube-system
+sudo kubectl edit daemonset kube-proxy -n  kube-system
 ```
 
  
@@ -651,10 +654,7 @@ sudo kubectl edit daemonset kube-flannel-ds-amd64 -n  kube-system
  
 
 ```
-\- args:
- \- --ip-masq
- \- --kube-subnet-mgr
-  \- --iface=enp0s8
+--iface=enp0s8
 ```
 
  
