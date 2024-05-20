@@ -3,9 +3,12 @@
  
 
 1.主机名称修改，目前我的3台主机名称分别是：
+
+```
 k8s-master :  192.168.1.200
-k8s-node-1: 192.168.1.201
-k8s-node-2:  192.168.1.202
+k8s-node-1:   192.168.1.201
+k8s-node-2:   192.168.1.202
+```
 
  
 
@@ -20,44 +23,68 @@ hostnamectl set-hostname  k8s-master
 
 
 设置各节点网络的别名
+
+```
 vim /etc/hosts
 192.168.1.200  k8s-master
 192.168.1.201 k8s-node-1
 192.168.1.202 k8s-node-2
+```
 
  
 
-
 2.关闭防火墙【没有uwf服务的不用操作】
+
+```
 systemctl stop  uwf && systemctl disable uwf
+```
+
+
 
  
 
 3.关闭swap
+
+```
 swapoff -a
 sed -i  '/swap/s/^\(.*\)$/#\1/g' /etc/fstab
+```
+
+
 
  
 
 4.将桥接的IPv4流量传递到iptables的链
+
+```
 echo  'net.bridge.bridge-nf-call-ip6tables = 1' >> /etc/sysctl.conf
 echo  'net.bridge.bridge-nf-call-iptables = 1' >> /etc/sysctl.conf
 echo  'net.ipv4.conf.all.route_localnet = 1' >> /etc/sysctl.conf
 echo  'net.ipv4.ip_forward = 1' >> /etc/sysctl.conf
 sysctl -p
+```
 
  
 
 如果出现缺少文件的现象
+
+```
 sysctl: cannot stat  /proc/sys/net/bridge/bridge-nf-call-iptables: 
+```
+
 则确认是否驱动加载完成,驱动加载:
+
+```
 modprobe br_netfilter
+```
 
  
 
 可以通过以下命令创建一个新的Systemd服务来实现自动加载br_netfilter：
 设置脚本，让br_netfilter加载模块
 \--------------------------------------------------------------------------------
+
+```
 cat <<EOF >  /etc/modules-load.d/br_netfilter.modules
 \#!/bin/bash
 modprobe --  br_netfilter
@@ -67,6 +94,7 @@ EOF
 
 chmod 755  /etc/modules-load.d/br_netfilter.modules
 bash  /etc/modules-load.d/br_netfilter.modules
+```
 
 
 \--------------------------------------------------------------------------------
@@ -81,12 +109,14 @@ bash  /etc/modules-load.d/br_netfilter.modules
 
 5.设置时间同步
 
- 
-
+```
 sudo apt install -y chrony
 sudo systemctl restart  chrony
 sudo systemctl status chrony
 chronyc sources
+```
+
+
 
  
 
@@ -105,15 +135,23 @@ k8s 要求 管理节点可以直接免密登录工作节点 的原因是：在�
 
  
 
+```
 sudo ssh-keygen
+```
+
+
 
 
 然后登录node节点，并依次输入下述两条命令将其复制并写入到node的authorized_keys中：
 
  
 
- sudo scp [root@192.168.1.200:~/.ssh/id_rsa.pub](mailto:root@192.168.1.200:~/.ssh/id_rsa.pub) /home sudo cat /home/id_rsa.pub >>  ~/.ssh/authorized_keys 
+```
+sudo scp [root@192.168.1.200:~/.ssh/id_rsa.pub](mailto:root@192.168.1.200:~/.ssh/id_rsa.pub) /home sudo cat /home/id_rsa.pub >>  ~/.ssh/authorized_keys 
+```
+
  
+
 然后再次使用ssh node登录就可以发现直接连接上而不需要密码了。
 
  
@@ -126,10 +164,13 @@ sudo ssh-keygen
  
 
 \# 安装基础环境
+
+```
 apt install -y ca-certificates curl  software-properties-common apt-transport-https curl containerd
 curl -s  https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg | sudo apt-key add -
 echo 'deb https://mirrors.aliyun.com/kubernetes/apt/ kubernetes-xenial main' >>  /etc/apt/sources.list.d/kubernetes.list 
 apt update -y
+```
 
  
 
@@ -139,6 +180,7 @@ apt update -y
 
  
 
+```
 mkdir /etc/containerd
 containerd config default >  /etc/containerd/config.toml
 
@@ -155,6 +197,7 @@ SystemdCgroup  = true
  
 
 systemctl restart containerd
+```
 
  
 
@@ -162,13 +205,15 @@ systemctl restart containerd
 
  
 
-
  \#查看kubeadm kubelet kubectl有哪些版本，以及版本安装时的具体名称
+
+```
 apt-cache madison kubeadm kubelet kubectl 
 kubeadm kubelet  kubectlapt -y install kubelet=1.27.6-00 kubeadm=1.27.6-00  kubectl=1.27.6-00
 apt-mark hold kubelet kubeadm kubectl
 systemctl start  kubelet 
 systemctl enable kubelet
+```
 
  
 
@@ -195,8 +240,12 @@ kubectl: k8s  的命令行工具，部署完成之后后续的操作都要用它
 
  
 
+```
 kubeadm config images pull --image-repository  registry.aliyuncs.com/google_containers
 kubeadm init  --image-repository=registry.aliyuncs.com/google_containers  --service-cidr=10.96.0.0/12 --pod-network-cidr=10.244.0.0/16  --apiserver-advertise-address=192.168.1.61  
+```
+
+
 
  
 
@@ -221,18 +270,22 @@ kubeadm  reset
  
 
 成功后的提示
+
+```
 Your Kubernetes control-plane has initialized  successfully!
 ....
 kubeadm join 192.168.1.222:6443 --token  jdp39b.vbex8e43ghaf43o8 \    
 --discovery-token-ca-cert-hash  sha256:bc8938a25290033d19d04c57fc1bb4e3179584fe3d67b75f3486e374d9f51857
 
  
+```
 
 配置 kubectl 工具
 按照提示执行（master上执行）
 
  
 
+```
 mkdir -p $HOME/.kube
 sudo cp -i  /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g)  $HOME/.kube/config
@@ -244,6 +297,9 @@ export  KUBECONFIG=/etc/kubernetes/admin.conf
  
 
 echo 'export KUBECONFIG=/etc/kubernetes/admin.conf'  >> .bashrc
+```
+
+
 
  
 
@@ -251,28 +307,38 @@ echo 'export KUBECONFIG=/etc/kubernetes/admin.conf'  >> .bashrc
 
  
 
-
 查看已加入的节点
+
+```
 kubectl get nodes
+```
 
  
 
 查看集群状态
+
+```
 kubectl get cs
+```
 
  
-
 
 部署 flannel 网络
 flannel是什么？它是一个专门为 k8s 设置的网络规划服务，可以让集群中的不同节点主机创建的  docker 容器都具有全集群唯一的虚拟IP地址。
 在全部节点安装flannel
+
+```
 curl -L   https://github.com/flannel-io/flannel/releases/download/v0.20.1/flanneld-amd64 -o /usr/bin/flanneld
 chmod +x /usr/bin/flanneld
+```
 
  
 
 在master安装
+
+```
 kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+```
 
 一般情况下可能会安装不成功，可以先把文件下载下来，然后更改镜像地址
 把“image: docker.io”开头的内容，全部改成“image:  dockerproxy.com”开头即可
@@ -289,11 +355,16 @@ kube-proxy默认采用iptables作为代理，而iptables的性能有限，不适
  
 
 1.# 安装软件
+
+```
 apt install -y ipset ipvsadm
+```
 
  
 
 2.# 设置脚本，让ipvs加载模块
+
+```
 cat <<EOF >  /etc/modules-load.d/ipvs.modules
 \#!/bin/bash
 modprobe -- ip_vs
@@ -302,38 +373,56 @@ modprobe -- ip_vs_wrr
 modprobe -- ip_vs_sh
 modprobe --  nf_conntrack
 EOF
+```
 
  
 
 3.设置脚本，进行开机ipvs自行加载模块
+
+```
 chmod 755  /etc/modules-load.d/ipvs.modules
 bash  /etc/modules-load.d/ipvs.modules
+```
 
  
 
-\4. 查看模块是否已加载
+4. 查看模块是否已加载
+
+```
 lsmod | grep ip_vs
 lsmod | grep  nf_conntrack
+```
 
  
 
 5.设置kube-proxy为IPVS模式
+
+```
 kubectl edit configmap  kube-proxy -n kube-system
 mode: "ipvs"
+```
 
  
 
-\6. 重启kube-proxy组件并检查模式
+6. 重启kube-proxy组件并检查模式
+
+```
 kubectl rollout restart  daemonset kube-proxy -n kube-system 
+```
 
  
 
 检查kube-proxy运行模式,重启kube-proxy进程后容器Pods会销毁并重新创建
+
+```
 systemctl daemon-reload && systemctl restart kubelet  && systemctl restart containerd  
+```
 
  
 
 \#确认所有的Pod都在正确的网络上运行 
+
+```
 [root@k8s-master](mailto:root@k8s-master):~# kubectl get pods  -A -o wide
 NAMESPACE   NAME                 READY   STATUS  RESTARTS     AGE  IP       NODE     NOMINATED NODE   READINESS GATES
 kube-flannel  kube-flannel-ds-6snmr        1/1    Running  0        32m  192.168.1.223  k8s-node-1   <none>      <none>
@@ -348,7 +437,9 @@ kube-system  kube-proxy-8jnwd           1/1    Running  7 (51s ago)   32m  192.1
 kube-system   kube-proxy-gx42h           1/1   Running  15 (4m24s ago)  48m   192.168.1.222  k8s-master  <none>       <none>
 kube-system  kube-proxy-z9lz2           1/1    Running  5 (49s ago)   32m  192.168.1.224  k8s-node-2   <none>      <none>
 kube-system   kube-scheduler-k8s-master      1/1   Running  0        48m   192.168.1.222  k8s-master  <none>       <none>
-              
+```
+
+​              
 
  
 
@@ -358,37 +449,48 @@ kube-system   kube-scheduler-k8s-master      1/1   Running  0        48m   192.1
 
 # 五. 配置slave节点并加入网络
 
-
+```
 apt -y install kubelet=1.27.6-00 kubeadm=1.27.6-00  
 apt-mark hold kubelet kubeadm 
 systemctl start kubelet 
 systemctl  enable kubelet
+```
 
  
 
 配置文件处理（仅在node上进行）
 复制master节点的 /etc/kubernetes/admin.conf 到 node节点  $HOME/.kube/config
+
+```
 mkdir -p $HOME/.kube
 sudo scp  [root@192.168.1.200:/etc/kubernetes/admin.conf](mailto:root@192.168.1.200:/etc/kubernetes/admin.conf) $HOME/.kube/config
 
 sudo chown $(id -u):$(id -g)  $HOME/.kube/config
 echo 'export KUBECONFIG=$HOME/.kube/config' >>  $HOME/.bashrc
 source ~/.bashrc
+```
 
 
 执行从步骤 4 中保存的命令即可完成加入，注意，这条命令每个人的都不一样，不要直接复制执行：
 
  
 
+```
 kubeadm join 192.168.1.200:6443 --token  jdp39b.vbex8e43ghaf43o8 --discovery-token-ca-cert-hash  sha256:bc8938a25290033d19d04c57fc1bb4e3179584fe3d67b75f3486e374d9f51857
+```
+
+
 
  
 
 待控制台中输出以下内容后即为加入成功：
+
+```
 This node has joined the  cluster:
 \* Certificate signing request was sent to apiserver and a response  was received.* 
 The Kubelet was informed of the new secure connection  details.
 Run 'kubectl get nodes' on the master to see this node join the  cluster.
+```
 
  
 
@@ -400,11 +502,15 @@ Run 'kubectl get nodes' on the master to see this node join the  cluster.
 
  
 
+```
 [root@devsvr](mailto:root@devsvr):~# kubectl get node -o  wide
 NAME     STATUS  ROLES      AGE   VERSION  INTERNAL-IP    EXTERNAL-IP  OS-IMAGE    KERNEL-VERSION    CONTAINER-RUNTIME
 devsvr    Ready  control-plane  27m   v1.28.2   192.168.1.222  <none>    Ubuntu 23.10  6.5.0-27-generic   containerd://1.7.2
 k8s-node-1  Ready  <none>     3m51s   v1.28.2  192.168.1.223  <none>    Ubuntu 23.10  6.5.0-27-generic   containerd://1.7.2
 k8s-node-2  Ready  <none>     3m24s   v1.28.2  192.168.1.224  <none>    Ubuntu 23.10  6.5.0-27-generic   containerd://1.7.2
+```
+
+
 
  
 
@@ -413,6 +519,7 @@ k8s-node-2  Ready  <none>     3m24s   v1.28.2  192.168.1.224  <none>    Ubuntu 2
 
  
 
+```
 [root@devsvr](mailto:root@devsvr):~# kubectl get pods -A  -o wide
 
 NAMESPACE   NAME               READY   STATUS       RESTARTS    AGE   IP       NODE      NOMINATED NODE  READINESS GATES
@@ -428,6 +535,9 @@ kube-system   kube-proxy-m28ml         0/1   ContainerCreating  0        6m17s  
 kube-system  kube-proxy-t4lr8         0/1    CrashLoopBackOff  8 (4m5s ago)  30m   192.168.1.222  devsvr     <none>      <none>
 kube-system   kube-proxy-vz8lf         0/1   ContainerCreating  0        5m50s  192.168.1.224  k8s-node-2  <none>       <none>
 kube-system  kube-scheduler-devsvr      1/1    Running       0       30m   192.168.1.222  devsvr     <none>      <none>
+```
+
+
 
  
 
@@ -441,10 +551,10 @@ kube-system  kube-scheduler-devsvr      1/1    Running       0       30m   192.1
 
  
 
-
+```
 ifconfig cni0 down  
 ip link delete  cni0
- 
+
 systemctl stop kubelet
 systemctl stop containerd
 
@@ -462,6 +572,9 @@ rm  -rf /etc/cni/
 
 systemctl restart kubelet
 systemctl restart  containerd 
+```
+
+
 
  
 
@@ -487,7 +600,9 @@ systemctl restart  containerd
 
  
 
+```
 sudo vi  /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+```
 
  
 
@@ -495,7 +610,9 @@ sudo vi  /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
 
  
 
+```
 Environment="KUBELET_EXTRA_ARGS=--node-ip=192.168.1.223"
+```
 
  
 
@@ -503,7 +620,9 @@ Environment="KUBELET_EXTRA_ARGS=--node-ip=192.168.1.223"
 
  
 
+```
 systemctl daemon-reload && systemctl restart kubelet
+```
 
  
 
@@ -521,7 +640,9 @@ systemctl daemon-reload && systemctl restart kubelet
 
  
 
+```
 sudo kubectl edit daemonset kube-flannel-ds-amd64 -n  kube-system
+```
 
  
 
@@ -529,10 +650,12 @@ sudo kubectl edit daemonset kube-flannel-ds-amd64 -n  kube-system
 
  
 
+```
 \- args:
  \- --ip-masq
  \- --kube-subnet-mgr
   \- --iface=enp0s8
+```
 
  
 
@@ -540,7 +663,9 @@ sudo kubectl edit daemonset kube-flannel-ds-amd64 -n  kube-system
 
  
 
+```
 kubectl delete pod -n kube-system -l  app=flannel
+```
 
  
 
