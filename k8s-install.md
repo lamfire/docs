@@ -270,7 +270,7 @@ kubectl: k8s  的命令行工具，部署完成之后后续的操作都要用它
 
  
 
-初始化 master 节点
+#### 初始化 master 节点
 
  
 
@@ -290,8 +290,6 @@ kubeadm init  --image-repository=registry.aliyuncs.com/google_containers  --serv
 
 这里介绍一下一些常用参数的含义：
 
- 
-
 --apiserver-advertise-address: k8s 中的主要服务apiserver的部署地址，填自己的管理节点  ip
 --image-repository: 拉取的 docker 镜像源，因为初始化的时候kubeadm会去拉 k8s  的很多组件来进行部署，所以需要指定国内镜像源，下不然会拉取不到镜像。
 --pod-network-cidr: 这个是 k8s  采用的节点网络，因为我们将要使用flannel作为 k8s 的网络，所以这里填10.244.0.0/16就好
@@ -302,7 +300,11 @@ kubeadm init  --image-repository=registry.aliyuncs.com/google_containers  --serv
  
 
 执行后发现错误（注意，所有节点都执行）
+
+```
 kubeadm  reset
+```
+
 如果在初始化过程中出现了任何Error导致初始化终止了，使用kubeadm reset重置之后再重新进行初始化。
 
  
@@ -318,7 +320,8 @@ kubeadm join 192.168.1.222:6443 --token  jdp39b.vbex8e43ghaf43o8 \
  
 ```
 
-配置 kubectl 工具
+#### 配置 kubectl 工具
+
 按照提示执行（master上执行）
 
  
@@ -361,7 +364,18 @@ kubectl get cs
 
  
 
-部署 flannel 网络
+
+
+
+
+### 五.部署 K8S网络
+
+以下网络模型根据需求选一种部署即可。
+
+
+
+#### １.部署 flannel 网络
+
 flannel是什么？它是一个专门为 k8s 设置的网络规划服务，可以让集群中的不同节点主机创建的  docker 容器都具有全集群唯一的虚拟IP地址。
 在全部节点安装flannel
 
@@ -381,9 +395,48 @@ kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/
 一般情况下可能会安装不成功，可以先把文件下载下来，然后更改镜像地址
 把“image: docker.io”开头的内容，全部改成“image:  dockerproxy.com”开头即可
 
- 
 
-#### 置kube-proxy模式为IPVS模式
+
+
+
+####  2.布署calico网络
+
+###### **当 Calico 使用Kubernetes API作为数据存储且集群节点大于50个**
+
+```javascript
+curl https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico-typha.yaml -o calico.yaml
+```
+
+如果您在 kubeadm 中使用不同的 pod  CIDR，则无需进行任何更改 - Calico 将根据运行配置自动检测 CIDR。对于其他平台，请确保取消注释清单中的  CALICO_IPV4POOL_CIDR 变量，并将其设置为与您选择的 pod CIDR 相同的值。
+
+在名为 calico-typa 的部署中将副本计数修改为所需的数字。
+
+```javascript
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: calico-typha
+  ...
+spec:
+  ...
+  replicas: 2
+```
+
+温馨提示: 我们建议每 200 个节点至少有 1 个副本，并且不超过 20 个副本。在生产中，我们建议至少三个副本，以减少滚动升级和故障的影响。副本数量应始终小于节点数量，否则滚动升级将停止。此外，只有当 Typha 实例少于节点数时，Typha 才有助于扩展。如果设置typa_service_name并将typha部署副本计数设置为0，则Felix将不会启动。
+
+创建colico网络
+
+```
+kubectl apply -f calico.yaml
+```
+
+
+
+
+
+
+
+#### 六.置kube-proxy模式为IPVS模式
 
  
 
@@ -450,7 +503,7 @@ kube-system   kube-scheduler-k8s-master      1/1   Running  0        48m   192.1
 
  
 
-# 五. 配置slave节点并加入网络
+# 七. 配置slave节点并加入网络
 
 ```
 apt -y install kubelet=1.27.6-00 kubeadm=1.27.6-00  
@@ -546,7 +599,7 @@ kube-system  kube-scheduler-devsvr      1/1    Running       0       30m   192.1
 
  
 
-# 六.重置节点
+# 八.重置节点
 
  
 
@@ -588,7 +641,7 @@ systemctl restart  containerd
 
  
 
-# 七.常见问题修复
+# 九.常见问题修复
 
  
 
