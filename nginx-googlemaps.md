@@ -1,5 +1,15 @@
 # 谷歌地图代理nginx配置
 
+
+
+谷歌地图访问地址
+
+```
+https://mt0.google.com/maps/vt?lyrs=s%40699&hl=zh-CN&gl=CN&&x=0&y=0&z=1
+```
+
+
+
 ### 步骤1：安装Nginx
 
 首先，确保系统上已经安装了Nginx。如果还没有安装，可以使用以下命令进行安装：
@@ -23,8 +33,8 @@ server {
     server_name your_domain.com;  # 这里你可以使用你的域名或者服务器IP
 
     location /maps/ {
-        proxy_pass https://maps.googleapis.com/maps/;
-        proxy_set_header Host maps.googleapis.com;
+        proxy_pass https://mt0.google.com/maps/;
+        proxy_set_header Host mt0.google.com;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -32,13 +42,7 @@ server {
 }
 ```
 
-### 配置解释：
 
-1. **listen 80;**: Nginx将监听80端口。
-2. **server_name your_domain.com;**: 这里可以配置你的域名或者服务器IP，确保Nginx能够根据访问的域名找到对应的配置。
-3. **location /maps/ { ... }**: 这个块配置了当请求 `http://your_domain.com/maps/` 时，如何处理代理请求。
-4. **proxy_pass https://maps.googleapis.com/maps/;**: 关键配置，将本地路径 `/maps/` 下的请求转发到 `https://maps.googleapis.com/maps/`。
-5. **proxy_set_header**: 这些指令用于设置HTTP头，确保客户端的请求头信息能够正确传递到后端服务器。
 
 ### 步骤3：重启Nginx
 
@@ -51,7 +55,7 @@ sudo systemctl restart nginx  # 重启Nginx服务
 
 ### 步骤4：测试配置
 
-打开你的浏览器，访问 `http://your_domain.com/maps/api/js?v=3.exp&key=YOUR_API_KEY` (替换成适当的API Key)，检查是否可以正常加载谷歌地图。
+打开你的浏览器，访问 `http://your_domain.com/maps/vt?lyrs=s%40699&hl=zh-CN&gl=CN&&x=0&y=0&z=1` (替换成适当的API Key)，检查是否可以正常加载谷歌地图。
 
 ### 额外补充：配置HTTPS (Optional)
 
