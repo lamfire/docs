@@ -41,14 +41,14 @@ chmod 777 -R ./*
 
 ##### 创建broker.conf
 
-```bash
+```properties
 vim ./broker/broker.conf
 
 brokerClusterName = rocketmq-cluster
 brokerName = broker
 brokerId = 0
 brokerIP1 = 192.168.1.212
-deleteWhen = 04
+deleteWhen = 1
 fileReservedTime = 48
 brokerRole = ASYNC_MASTER
 flushDiskType = ASYNC_FLUSH
@@ -61,6 +61,11 @@ flushDiskType=ASYNC_FLUSH
 ```
 
 这里需要根据自己的实际环境做适当修改
+
+- `deleteWhen`：指定消息的删除策略，可以设置为`0`（表示消息被消费后立即删除），`1`（消息过期后删除）或`2`（消息过期后进入清理队列）。
+- `fileReservedTime`：指定消息的保留时间，单位是小时。
+- 这样配置后，一旦消息超过48小时未被消费，将被清除。
+
 `注意：brokerIP1，namesrvAddr，这2个参数，一般配置为内网ip，提供内网访问。如果需要公网访问，这里一定要配置公网ip，否则无法访问。`
 
 
